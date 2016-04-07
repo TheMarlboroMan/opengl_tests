@@ -288,9 +288,10 @@ void render()
 	glTranslatef(-100.f, -100.f, 0.f); //Mover...
 	glColor3f(1.f, 1.f, 1.f); //Demodular color...
 	glEnable(GL_TEXTURE_2D); //Activa
+	glRotatef(45.f, 0.f, 0.f, 1.f);
 	glBindTexture(GL_TEXTURE_2D, tex2.get_id()); //Cargar textura.
 	glBegin(GL_QUADS);
-		glTexCoord2f(0.f, 0.f);
+		glTexCoord2f(0.5f, 0.f);
 		glVertex2f(0.f, 0.f);
 
 		glTexCoord2f(1.f, 0.f);
@@ -299,7 +300,7 @@ void render()
 		glTexCoord2f(1.f, 1.f);
 		glVertex2f(100.f, 100.f);
 
-		glTexCoord2f(0.f, 1.f);
+		glTexCoord2f(0.5f, 1.f);
 		glVertex2f(0.f, 100.f);
 	glEnd();
 
