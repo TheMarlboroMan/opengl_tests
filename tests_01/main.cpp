@@ -5,11 +5,14 @@
 #include <IL/il.h> 
 #include <IL/ilu.h>
 
+#include <vector>
 #include <iostream>
 #include <string>
 #include <stdexcept>
 
 /*g++ main.cpp -std=c++11 -lGL -lGLU -lglut -lIL -lILu*/
+
+//TODO: Migrate to SDL2 so Glut and IL can be removed.
 
 class Texture
 {
@@ -24,7 +27,6 @@ class Texture
 	void	load(GLuint* pixels, GLuint width, GLuint height)
 	{
 		free();
-
 		//Genera un id de textura.
 		glGenTextures(1, &id); 
 
@@ -72,11 +74,6 @@ class Texture
 		}
 	}
 
-//	void	render(GLfloat x, GLFloat y)
-//	{
-//
-//	}
-
 	GLuint	get_id() const {return id;}
 	GLuint	get_width() const {return width;}
 	GLuint	get_height() const {return height;}
@@ -88,6 +85,83 @@ class Texture
 			height;
 };
 
+struct fPoint
+{
+	float x, y;
+};
+
+struct fPoint3d
+{
+	float x, y, z;
+};
+
+struct fRot
+{
+	float a, x, y, z;
+};
+
+class QuadTex
+{
+	public:
+
+	QuadTex(const Texture& t):texture(t), pos{0.f, 0.f, 0.f},
+		rot{0.f, 0.f, 0.f, 0.f}
+	{
+		
+	}
+
+	QuadTex&	posicion(float px, float py, float pz) 
+	{
+		pos={px, py, pz};
+		return *this;
+	}
+
+	QuadTex&	rotacion(float pa, float px, float py, float pz) 
+	{
+		rot={pa, px, py, pz};
+		return *this;
+	}
+
+	QuadTex&	punto(float px, float py, float tx, float ty) 
+	{
+		puntos.push_back({px, py});
+		puntostex.push_back({tx, ty});
+		return *this;
+	}
+	
+	void		draw()
+	{
+		glTranslatef(pos.x, pos.y, pos.z); //Mover...
+		if(rot.a) glRotatef(rot.a, rot.x, rot.y, rot.z);
+
+		glColor3f(1.f, 1.f, 1.f); //Demodular color...
+		glEnable(GL_TEXTURE_2D); //Activa
+		glBindTexture(GL_TEXTURE_2D, texture.get_id()); //Cargar textura.
+		glBegin(GL_QUADS);
+		auto pit=std::begin(puntos), tit=std::begin(puntostex);
+		while(pit < std::end(puntos))
+		{
+			glTexCoord2f(tit->x, tit->y);
+			glVertex2f(pit->x, pit->y);
+			++pit;
+			++tit;
+		}
+		glEnd();
+
+		//Restaurar traslación.
+		if(rot.a) glRotatef(-rot.a, rot.x, rot.y, rot.z);
+		glTranslatef(-pos.x, -pos.y, -pos.z);
+
+	}
+
+	private:
+
+	const Texture&		texture;
+	fPoint3d		pos;
+	fRot			rot;
+	std::vector<fPoint>	puntos, puntostex;
+};
+
 enum colors{COLOR_MODE_CYAN, COLOR_MODE_MULTI};
 enum viewports{FULL=0, HALF_CENTER, HALF_TOP, VIEWPORT_MAX};
 int 		color_mode=COLOR_MODE_CYAN,
@@ -97,8 +171,7 @@ GLfloat 	xcam=0.f,
 const int 
 	w_screen=640,
 	h_screen=480;
-Texture tex, tex2;
-
+Texture tex, tex2, tex3;
 
 //This shall dissapear.
 void load_texture(Texture& t)
@@ -217,93 +290,49 @@ void render()
 	//Cargamos la identidad para que los cambios inferiores no se acumulen.
 	//glLoadIdentity();
 
-	//Traslación de lo que dibujemos en x, y y z.
-	glTranslatef(w_screen/2.f, h_screen/2.f, 0.f);
+	//Traslación de lo que dibujemos en x, y y z. Centrar en pantalla, básicamente
+	//glTranslatef(w_screen/2.f, h_screen/2.f, 0.f);
 
-/*
-	//Esto es para el sistema de coordenadas -1 : 1...
-	glBegin( GL_QUADS );
-		glColor3f(0.f, 1.f, 1.f);
-	       	glVertex2f(-0.5f, -0.5f);
-	        glVertex2f(-0.5f, 0.5f);
-	        glVertex2f(0.5f, 0.5f);
-	        glVertex2f(0.5f, -0.5f);
-	glEnd();
-*/
+	//TODO: Read this shit from files :D!.
 
+	//TODO: Do occlusion test.
+
+	QuadTex qt3(tex);
+	qt3.posicion(0.f, 0.f, 0.f)
+	.punto(0.f, 0.f, 0.f, 0.f)
+	.punto(100.f, 0.f, 1.f, 0.f)
+	.punto(100.f, 100.f, 1.f, 1.f)
+	.punto(0.f, 100.f, 0.f, 1.f)
+	.draw();
+
+	QuadTex qt4(tex);
+	qt4.posicion(100.f, 0.f, 0.f)
+	.punto(0.f, 0.f, 0.f, 0.f)
+	.punto(100.f, 0.f, 1.f, 0.f)
+	.punto(100.f, 100.f, 1.f, 1.f)
+	.punto(0.f, 100.f, 0.f, 1.f)
+	.draw();
+
+	//Dibujar con textura full...
+	QuadTex qt2(tex2);
+	qt2.posicion(0.f, 100.f, 0.f)
+	.rotacion(45.0f, 0.f, 0.f, 1.f)
+	.punto(0.f, 0.f, 0.f, 0.f)
+	.punto(100.f, 0.f, 1.f, 0.f)
+	.punto(100.f, 100.f, 1.f, 1.f)
+	.punto(0.f, 100.f, 0.f, 1.f)
+	.draw();
+
+	//Dibujar con textura troceada...
+	//TODO: Translate texture coordinates to pixels???.
+	QuadTex qt(tex3);
+	qt.posicion(100.f, 100.f, 0.f)
+	.punto(0.f, 0.f, 0.f, 0.f)
+	.punto(100.f, 0.f, 1.f / 8.f, 0.f)
+	.punto(100.f, 100.f, 1.f / 8.f, 1.f / 8.f)
+	.punto(0.f, 100.f, 0.f, 1.f / 8.f)
+	.draw();
 	
-	auto do_color=[](int color_mode, int i)
-	{
-		if(color_mode==COLOR_MODE_CYAN) glColor3f(0.f, 1.f, 1.f);
-		else switch(i)
-		{
-			case 0: glColor3f(1.f, 0.f, 0.f); break;
-			case 1: glColor3f(1.f, 1.f, 0.f); break;
-			case 2: glColor3f(0.f, 1.f, 0.f); break;
-			case 3: glColor3f(0.f, 0.f, 1.f); break;
-		}
-	};
-
-	int i=0;
-	//Iniciar dibujo de polígono... en este caso un quad.
-
-	glDisable(GL_TEXTURE_2D);
-	glBegin(GL_QUADS);
-		glColor3f(.2f, .2f, .2f);
-        	glVertex2f(-w_screen / 3.f, -h_screen / 3.f);
-	        glVertex2f(-w_screen / 3.f, h_screen / 3.f);
-	        glVertex2f(w_screen / 3.f, h_screen / 3.f);
-	        glVertex2f(w_screen / 3.f, -h_screen / 3.f);
-	glEnd();
-
-	glBegin(GL_QUADS);
-		do_color(color_mode, i++);
-        	glVertex2f(-150.f, -150.f);
-		do_color(color_mode, i++);
-	        glVertex2f(-150.f, 150.f);
-		do_color(color_mode, i++);
-	        glVertex2f(150.f, 150.f);
-		do_color(color_mode, i++);
-	        glVertex2f(150.f, -150.f);
-	glEnd();
-
-	glTranslatef(100.f, 100.f, 0.f); //Mover...
-	glColor3f(1.f, 1.f, 1.f); //Demodular color...
-	glEnable(GL_TEXTURE_2D); //Activa
-	glBindTexture(GL_TEXTURE_2D, tex.get_id()); //Cargar textura.
-	glBegin(GL_QUADS);
-		glTexCoord2f(0.f, 0.f);
-		glVertex2f(0.f, 0.f);
-
-		glTexCoord2f(1.f, 0.f);
-		glVertex2f(100.f, 0.f);
-
-		glTexCoord2f(1.f, 1.f);
-		glVertex2f(100.f, 100.f);
-
-		glTexCoord2f(0.f, 1.f);
-		glVertex2f(0.f, 100.f);
-	glEnd();
-
-	glTranslatef(-100.f, -100.f, 0.f); //Mover...
-	glColor3f(1.f, 1.f, 1.f); //Demodular color...
-	glEnable(GL_TEXTURE_2D); //Activa
-	glRotatef(45.f, 0.f, 0.f, 1.f);
-	glBindTexture(GL_TEXTURE_2D, tex2.get_id()); //Cargar textura.
-	glBegin(GL_QUADS);
-		glTexCoord2f(0.5f, 0.f);
-		glVertex2f(0.f, 0.f);
-
-		glTexCoord2f(1.f, 0.f);
-		glVertex2f(100.f, 0.f);
-
-		glTexCoord2f(1.f, 1.f);
-		glVertex2f(100.f, 100.f);
-
-		glTexCoord2f(0.5f, 1.f);
-		glVertex2f(0.f, 100.f);
-	glEnd();
-
 	//Intercambiar buffers.
 	glutSwapBuffers();
 }
@@ -362,6 +391,7 @@ int main(int argc, char ** argv)
 		init_open_gl();
 		load_texture(tex);
 		tex2.load_from_file("cosa.png");
+		tex3.load_from_file("template_tiles.png");
 
 		//Indicar función de input...
 		glutKeyboardFunc(do_input_handling);
@@ -383,3 +413,40 @@ int main(int argc, char ** argv)
 
 	return 0;
 }
+	//TODO: Take this to a class...
+/*
+	auto do_color=[](int color_mode, int i)
+	{
+		if(color_mode==COLOR_MODE_CYAN) glColor3f(0.f, 1.f, 1.f);
+		else switch(i)
+		{
+			case 0: glColor3f(1.f, 0.f, 0.f); break;
+			case 1: glColor3f(1.f, 1.f, 0.f); break;
+			case 2: glColor3f(0.f, 1.f, 0.f); break;
+			case 3: glColor3f(0.f, 0.f, 1.f); break;
+		}
+	};
+
+	int i=0;
+	//Iniciar dibujo de polígono... en este caso un quad.
+
+	glDisable(GL_TEXTURE_2D);
+	glBegin(GL_QUADS);
+		glColor3f(.2f, .2f, .2f);
+        	glVertex2f(-w_screen / 3.f, -h_screen / 3.f);
+	        glVertex2f(-w_screen / 3.f, h_screen / 3.f);
+	        glVertex2f(w_screen / 3.f, h_screen / 3.f);
+	        glVertex2f(w_screen / 3.f, -h_screen / 3.f);
+	glEnd();
+
+	glBegin(GL_QUADS);
+		do_color(color_mode, i++);
+        	glVertex2f(-150.f, -150.f);
+		do_color(color_mode, i++);
+	        glVertex2f(-150.f, 150.f);
+		do_color(color_mode, i++);
+	        glVertex2f(150.f, 150.f);
+		do_color(color_mode, i++);
+	        glVertex2f(150.f, -150.f);
+	glEnd();
+*/
